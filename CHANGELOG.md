@@ -16,4 +16,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial repository template with GitHub Copilot automation integration
 
-[Unreleased]: https://github.com/Skitionek/Automated-reppo/compare/HEAD...HEAD
+[Unreleased]: https://github.com/Skitionek/template/commits/main
