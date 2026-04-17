@@ -56,6 +56,10 @@ jobs:
         id: cpr
         if: steps.fix_check.outputs.enabled == 'true'
         with:
+          # PAT (Personal Access Token) is required when you want the auto-fix PR to
+          # trigger other workflows (e.g. CI). GITHUB_TOKEN-created PRs do not trigger
+          # workflow runs by default to avoid infinite loops.
+          # Add a repository secret named PAT with a token that has `repo` scope.
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           commit-message: "[MegaLinter] Apply linters automatic fixes"
           title: "[MegaLinter] Apply linters automatic fixes"
