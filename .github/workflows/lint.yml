@@ -35,6 +35,10 @@ jobs:
           # Lint only changed files on PRs; lint everything on push to main
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Disable the built-in PR comment reporter; we post our own comment below.
+          GITHUB_COMMENT_REPORTER: false
+          # Enable SARIF output for the Security tab and PR annotations.
+          SARIF_REPORTER: true
 
       # ── Auto-fix pull request (PR only) ───────────────────────────────────
       - name: Set fix-PR flag
@@ -93,6 +97,9 @@ jobs:
           (github.event_name == 'pull_request' || github.event_name == 'push') &&
           always()
         uses: github/codeql-action/upload-sarif@v3
+        # continue-on-error so the job doesn't fail when SARIF wasn't produced
+        # (e.g. no linting errors were found, or the reporter was not enabled).
+        continue-on-error: true
         with:
           sarif_file: megalinter-reports/megalinter-report.sarif
           category: megalinter
