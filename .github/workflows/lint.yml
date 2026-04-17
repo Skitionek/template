@@ -1,0 +1,94 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Default to read-only; individual jobs grant only the permissions they need.
+permissions: read-all
+
+jobs:
+  megalinter:
+    name: MegaLinter
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # needed to commit auto-fixes
+      issues: write
+      pull-requests: write
+      security-events: write # needed to upload SARIF
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Run MegaLinter
+        id: ml
+        uses: oxsecurity/megalinter@v8
+        env:
+          # Lint only changed files on PRs; lint everything on push to main
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Auto-fix pull request (PR only) ───────────────────────────────────
+      - name: Set fix-PR flag
+        id: fix_check
+        env:
+          HAS_UPDATES: ${{ steps.ml.outputs.has_updated_sources }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          SKIP_FIX: ${{ contains(github.event.head_commit.message, 'skip fix') }}
+        run: |
+          if [[ "$HAS_UPDATES" == "1" && "$IS_PR" == "true" && "$SAME_REPO" == "true" && "$SKIP_FIX" != "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request with applied fixes
+        uses: peter-evans/create-pull-request@v7
+        id: cpr
+        if: steps.fix_check.outputs.enabled == 'true'
+        with:
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "[MegaLinter] Apply linters automatic fixes"
+          title: "[MegaLinter] Apply linters automatic fixes"
+          labels: bot
+          branch: megalinter-fixes-pr-${{ github.event.pull_request.number }}
+          body: |
+            MegaLinter has automatically applied linters fixes on this PR.
+            Please review the changes and merge if they are correct.
+          base: ${{ github.head_ref }}
+
+      - name: Post PR Comment
+        if: steps.fix_check.outputs.enabled == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            MegaLinter has automatically applied linters fixes on this PR.
+            Please review the changes and merge if they are correct.
+            PR: ${{ steps.cpr.outputs.pull-request-url }}
+          hide_and_recreate: true
+
+      - name: Fail if PR Created
+        if: steps.fix_check.outputs.enabled == 'true' && steps.cpr.outputs.pull-request-url != ''
+        run: |
+          echo "A PR with formatting fixes has been created. Please merge it before proceeding."
+          echo "PR: ${{ steps.cpr.outputs.pull-request-url }}"
+          exit 1
+
+      # ── Upload SARIF for PR annotations ───────────────────────────────────
+      - name: Upload SARIF report
+        if: >
+          (github.event_name == 'pull_request' || github.event_name == 'push') &&
+          always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: megalinter-reports/megalinter-report.sarif
+          category: megalinter
