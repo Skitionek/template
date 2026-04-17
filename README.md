@@ -1,6 +1,6 @@
 # Automated-reppo
 
-A GitHub repository template providing far-reaching Copilot and automation integration, distilled from common patterns across private repositories (particularly [skitionek/lifelike](https://github.com/Skitionek/lifelike)).
+A GitHub repository template providing far-reaching Copilot and automation integration, distilled from common patterns across private repositories.
 
 ## What's included
 
