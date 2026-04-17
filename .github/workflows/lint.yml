@@ -28,17 +28,157 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Run MegaLinter
-        id: ml
+      - name: Detect MegaLinter flavor
+        id: detect_flavor
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD 2>/dev/null || true)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 2>/dev/null || true)
+          fi
+          echo "Changed files:"
+          echo "${CHANGED:-<none>}"
+          LANGS=()
+          if [[ -n "$CHANGED" ]]; then
+            grep -qiE '\.(py|ipynb|pyx|pyi)$'                <<< "$CHANGED" && LANGS+=(python)
+            grep -qiE '\.(js|ts|jsx|tsx|mjs|cjs|vue|svelte)$' <<< "$CHANGED" && LANGS+=(javascript)
+            grep -qiE '\.java$'                                <<< "$CHANGED" && LANGS+=(java)
+            grep -qiE '\.go$'                                  <<< "$CHANGED" && LANGS+=(go)
+            grep -qiE '\.rb$'                                  <<< "$CHANGED" && LANGS+=(ruby)
+            grep -qiE '\.php$'                                 <<< "$CHANGED" && LANGS+=(php)
+            grep -qiE '\.rs$'                                  <<< "$CHANGED" && LANGS+=(rust)
+            grep -qiE '\.(cs|vb|fs|fsx)$'                     <<< "$CHANGED" && LANGS+=(dotnet)
+            grep -qiE '\.(tf|tfvars)$'                         <<< "$CHANGED" && LANGS+=(terraform)
+            grep -qiE '\.swift$'                               <<< "$CHANGED" && LANGS+=(swift)
+          fi
+          if [[ ${#LANGS[@]} -eq 1 ]]; then
+            FLAVOR="${LANGS[0]}"
+          else
+            FLAVOR="all"
+          fi
+          echo "Detected flavor: $FLAVOR (matched languages: ${LANGS[*]:-none})"
+          echo "flavor=$FLAVOR" >> "$GITHUB_OUTPUT"
+
+      - name: Run MegaLinter (all)
+        id: ml_all
+        if: steps.detect_flavor.outputs.flavor == 'all'
         uses: oxsecurity/megalinter@v8
         env:
-          # Lint only changed files on PRs; lint everything on push to main
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Disable the built-in PR comment reporter; we post our own comment below.
           GITHUB_COMMENT_REPORTER: false
-          # Enable SARIF output for the Security tab and PR annotations.
           SARIF_REPORTER: true
+
+      - name: Run MegaLinter (python)
+        id: ml_python
+        if: steps.detect_flavor.outputs.flavor == 'python'
+        uses: oxsecurity/megalinter/flavors/python@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (javascript)
+        id: ml_javascript
+        if: steps.detect_flavor.outputs.flavor == 'javascript'
+        uses: oxsecurity/megalinter/flavors/javascript@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (java)
+        id: ml_java
+        if: steps.detect_flavor.outputs.flavor == 'java'
+        uses: oxsecurity/megalinter/flavors/java@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (go)
+        id: ml_go
+        if: steps.detect_flavor.outputs.flavor == 'go'
+        uses: oxsecurity/megalinter/flavors/go@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (ruby)
+        id: ml_ruby
+        if: steps.detect_flavor.outputs.flavor == 'ruby'
+        uses: oxsecurity/megalinter/flavors/ruby@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (php)
+        id: ml_php
+        if: steps.detect_flavor.outputs.flavor == 'php'
+        uses: oxsecurity/megalinter/flavors/php@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (rust)
+        id: ml_rust
+        if: steps.detect_flavor.outputs.flavor == 'rust'
+        uses: oxsecurity/megalinter/flavors/rust@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (dotnet)
+        id: ml_dotnet
+        if: steps.detect_flavor.outputs.flavor == 'dotnet'
+        uses: oxsecurity/megalinter/flavors/dotnet@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (terraform)
+        id: ml_terraform
+        if: steps.detect_flavor.outputs.flavor == 'terraform'
+        uses: oxsecurity/megalinter/flavors/terraform@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      - name: Run MegaLinter (swift)
+        id: ml_swift
+        if: steps.detect_flavor.outputs.flavor == 'swift'
+        uses: oxsecurity/megalinter/flavors/swift@v8
+        env:
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_COMMENT_REPORTER: false
+          SARIF_REPORTER: true
+
+      # Derive has_updated_sources from git status so downstream steps work
+      # regardless of which flavor step ran above.
+      - name: Collect MegaLinter result
+        id: ml
+        run: |
+          if git diff --quiet; then
+            echo "has_updated_sources=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_updated_sources=1" >> "$GITHUB_OUTPUT"
+          fi
 
       # ── Auto-fix pull request (PR only) ───────────────────────────────────
       - name: Set fix-PR flag
