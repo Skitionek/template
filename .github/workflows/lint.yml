@@ -53,124 +53,43 @@ jobs:
           fi
           if [[ ${#LANGS[@]} -eq 1 ]]; then
             FLAVOR="${LANGS[0]}"
+            IMAGE="docker://ghcr.io/oxsecurity/megalinter-${FLAVOR}:v8"
           else
             FLAVOR="all"
+            IMAGE="docker://ghcr.io/oxsecurity/megalinter:v8"
           fi
           echo "Detected flavor: $FLAVOR (matched languages: ${LANGS[*]:-none})"
           echo "flavor=$FLAVOR" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE"   >> "$GITHUB_OUTPUT"
 
-      - name: Run MegaLinter (all)
-        id: ml_all
-        if: steps.detect_flavor.outputs.flavor == 'all'
-        uses: oxsecurity/megalinter@v8
+      # Build a minimal Docker action on the fly pointing at the single
+      # flavor image determined above. Only that one image will be pulled.
+      - name: Create dynamic MegaLinter action
+        run: |
+          mkdir -p .github/actions/_megalinter
+          printf 'name: MegaLinter (%s)\ndescription: Run MegaLinter\nruns:\n  using: docker\n  image: "%s"\n' \
+            "${{ steps.detect_flavor.outputs.flavor }}" \
+            "${{ steps.detect_flavor.outputs.image }}" \
+            > .github/actions/_megalinter/action.yml
+          echo "Generated action.yml:"
+          cat .github/actions/_megalinter/action.yml
+
+      - name: Run MegaLinter
+        id: ml_run
+        uses: ./.github/actions/_megalinter
         env:
           VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_COMMENT_REPORTER: false
           SARIF_REPORTER: true
 
-      - name: Run MegaLinter (python)
-        id: ml_python
-        if: steps.detect_flavor.outputs.flavor == 'python'
-        uses: oxsecurity/megalinter/flavors/python@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
+      # Remove the ephemeral action before create-pull-request runs so it
+      # is never committed to the repository.
+      - name: Clean up dynamic action
+        if: always()
+        run: rm -rf .github/actions/_megalinter
 
-      - name: Run MegaLinter (javascript)
-        id: ml_javascript
-        if: steps.detect_flavor.outputs.flavor == 'javascript'
-        uses: oxsecurity/megalinter/flavors/javascript@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (java)
-        id: ml_java
-        if: steps.detect_flavor.outputs.flavor == 'java'
-        uses: oxsecurity/megalinter/flavors/java@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (go)
-        id: ml_go
-        if: steps.detect_flavor.outputs.flavor == 'go'
-        uses: oxsecurity/megalinter/flavors/go@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (ruby)
-        id: ml_ruby
-        if: steps.detect_flavor.outputs.flavor == 'ruby'
-        uses: oxsecurity/megalinter/flavors/ruby@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (php)
-        id: ml_php
-        if: steps.detect_flavor.outputs.flavor == 'php'
-        uses: oxsecurity/megalinter/flavors/php@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (rust)
-        id: ml_rust
-        if: steps.detect_flavor.outputs.flavor == 'rust'
-        uses: oxsecurity/megalinter/flavors/rust@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (dotnet)
-        id: ml_dotnet
-        if: steps.detect_flavor.outputs.flavor == 'dotnet'
-        uses: oxsecurity/megalinter/flavors/dotnet@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (terraform)
-        id: ml_terraform
-        if: steps.detect_flavor.outputs.flavor == 'terraform'
-        uses: oxsecurity/megalinter/flavors/terraform@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      - name: Run MegaLinter (swift)
-        id: ml_swift
-        if: steps.detect_flavor.outputs.flavor == 'swift'
-        uses: oxsecurity/megalinter/flavors/swift@v8
-        env:
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_COMMENT_REPORTER: false
-          SARIF_REPORTER: true
-
-      # Derive has_updated_sources from git status so downstream steps work
-      # regardless of which flavor step ran above.
+      # Derive has_updated_sources from git status so downstream steps work.
       - name: Collect MegaLinter result
         id: ml
         run: |
