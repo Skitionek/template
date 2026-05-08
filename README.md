@@ -13,7 +13,7 @@ A GitHub repository template providing far-reaching Copilot and automation integ
 | `.github/workflows/codeql.yml` | CodeQL Advanced security scanning on push/PR/schedule |
 | `.github/workflows/copilot-auto-fix.yml` | Posts a `@copilot` comment when CI fails on a PR, asking it to propose a fix |
 | `.github/workflows/dependabot-automerge.yml` | Auto-approves and squash-merges Dependabot PRs |
-| `.github/workflows/lint.yml` | MegaLinter: lints changed files on PRs, opens auto-fix PRs when fixable |
+| `.github/workflows/lint.yml` | MegaLinter via reusable `Skitionek/lint` action: lints changed files on PRs and opens auto-fix PRs when fixable |
 | `.github/workflows/megalinter-auto-approve.yml` | Auto-approves MegaLinter fix PRs so they can be merged immediately |
 | `CHANGELOG.md` | Keep-a-Changelog template, updated by Copilot on every user-facing change |
 
